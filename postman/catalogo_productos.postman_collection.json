@@ -1,6 +1,7 @@
 {
   "info": {
     "name": "Catálogo de Productos API",
+    "description": "Ejecutar carpetas 1-6 en orden con el Runner. Reiniciar el servidor y ejecutar la carpeta 7 para evidenciar persistencia.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "event": [
@@ -9,7 +10,7 @@
       "script": {
         "type": "text/javascript",
         "exec": [
-          "if(!pm.collectionVariables.get('run')||pm.info.iteration===0&&pm.info.requestName.startsWith('Registro usuario A')){pm.collectionVariables.set('run',Date.now());}"
+          "if(pm.info.requestName.startsWith('Registro usuario A')||!pm.collectionVariables.get('run')){pm.collectionVariables.set('run',Date.now());}"
         ]
       }
     }
@@ -21,7 +22,23 @@
     },
     {
       "key": "run",
-      "value": "0"
+      "value": ""
+    },
+    {
+      "key": "tokenA",
+      "value": ""
+    },
+    {
+      "key": "tokenB",
+      "value": ""
+    },
+    {
+      "key": "tokenAdmin",
+      "value": ""
+    },
+    {
+      "key": "productoId",
+      "value": ""
     }
   ],
   "item": [
@@ -37,7 +54,8 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('Status 201',()=>pm.response.to.have.status(201));",
-                  "pm.test('rol usuario y sin password',()=>{const j=pm.response.json();pm.expect(j.rol).to.eql('usuario');pm.expect(j).to.not.have.property('password');});"
+                  "pm.test('rol usuario y campos',()=>{const j=pm.response.json();pm.expect(j.rol).to.eql('usuario');pm.expect(j).to.have.property('id');pm.expect(j.email).to.eql('a_'+pm.collectionVariables.get('run')+'@test.com');});",
+                  "pm.test('No expone password/hash',()=>pm.expect(pm.response.text()).to.not.match(/password|\\$2[aby]\\$/i));"
                 ]
               }
             }
@@ -78,7 +96,8 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status 201',()=>pm.response.to.have.status(201));"
+                  "pm.test('Status 201',()=>pm.response.to.have.status(201));",
+                  "pm.test('No expone password/hash',()=>pm.expect(pm.response.text()).to.not.match(/password|\\$2[aby]\\$/i));"
                 ]
               }
             }
@@ -112,14 +131,15 @@
           }
         },
         {
-          "name": "Registro email duplicado (409)",
+          "name": "Registro correo duplicado (409)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status 409',()=>pm.response.to.have.status(409));"
+                  "pm.test('Status 409',()=>pm.response.to.have.status(409));",
+                  "pm.test('Respuesta de error con mensaje',()=>pm.expect(pm.response.json()).to.have.property('error'));"
                 ]
               }
             }
@@ -153,14 +173,15 @@
           }
         },
         {
-          "name": "Registro datos inválidos (400)",
+          "name": "Registro campos vacíos / inválidos (400)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status 400',()=>pm.response.to.have.status(400));"
+                  "pm.test('Status 400',()=>pm.response.to.have.status(400));",
+                  "pm.test('Respuesta de error con mensaje',()=>pm.expect(pm.response.json()).to.have.property('error'));"
                 ]
               }
             }
@@ -194,7 +215,7 @@
           }
         },
         {
-          "name": "Login A (200)",
+          "name": "Login A correcto (200)",
           "event": [
             {
               "listen": "test",
@@ -202,6 +223,8 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('Status 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('Token JWT + usuario sin password',()=>{const j=pm.response.json();pm.expect(j.token.split('.')).to.have.lengthOf(3);pm.expect(j.usuario.rol).to.eql('usuario');});",
+                  "pm.test('No expone password/hash',()=>pm.expect(pm.response.text()).to.not.match(/password|\\$2[aby]\\$/i));",
                   "pm.collectionVariables.set('tokenA',pm.response.json().token);"
                 ]
               }
@@ -236,7 +259,7 @@
           }
         },
         {
-          "name": "Login B (200)",
+          "name": "Login B correcto (200)",
           "event": [
             {
               "listen": "test",
@@ -278,7 +301,7 @@
           }
         },
         {
-          "name": "Login admin (200)",
+          "name": "Login admin correcto (200)",
           "event": [
             {
               "listen": "test",
@@ -286,6 +309,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('Status 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('rol admin',()=>pm.expect(pm.response.json().usuario.rol).to.eql('admin'));",
                   "pm.collectionVariables.set('tokenAdmin',pm.response.json().token);"
                 ]
               }
@@ -320,14 +344,15 @@
           }
         },
         {
-          "name": "Login credenciales incorrectas (401)",
+          "name": "Login contraseña incorrecta (401)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status 401',()=>pm.response.to.have.status(401));"
+                  "pm.test('Status 401',()=>pm.response.to.have.status(401));",
+                  "pm.test('Respuesta de error con mensaje',()=>pm.expect(pm.response.json()).to.have.property('error'));"
                 ]
               }
             }
@@ -345,7 +370,49 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"a_{{run}}@test.com\",\n  \"password\": \"mala\"\n}"
+              "raw": "{\n  \"email\": \"a_{{run}}@test.com\",\n  \"password\": \"incorrecta\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Login email inexistente (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401',()=>pm.response.to.have.status(401));",
+                  "pm.test('Respuesta de error con mensaje',()=>pm.expect(pm.response.json()).to.have.property('error'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"noexiste@test.com\",\n  \"password\": \"Password1\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/auth/login",
@@ -368,7 +435,8 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status 400',()=>pm.response.to.have.status(400));"
+                  "pm.test('Status 400',()=>pm.response.to.have.status(400));",
+                  "pm.test('Respuesta de error con mensaje',()=>pm.expect(pm.response.json()).to.have.property('error'));"
                 ]
               }
             }
@@ -407,14 +475,15 @@
       "name": "2. Catálogo público",
       "item": [
         {
-          "name": "Listar productos (200)",
+          "name": "Listar productos sin token (200, ≥5)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status 200',()=>pm.response.to.have.status(200));"
+                  "pm.test('Status 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('Al menos 5 productos con campos',()=>{const j=pm.response.json();pm.expect(j.length).to.be.at.least(5);['id','nombre','descripcion','categoria','precio'].forEach(k=>pm.expect(j[0]).to.have.property(k));});"
                 ]
               }
             }
@@ -438,14 +507,15 @@
           }
         },
         {
-          "name": "Filtrar por categoría (200)",
+          "name": "Filtrar por categoría Hogar (200)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status 200',()=>pm.response.to.have.status(200));"
+                  "pm.test('Status 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('Todos son de Hogar',()=>{const j=pm.response.json();pm.expect(j.length).to.be.above(0);j.forEach(p=>pm.expect(p.categoria).to.eql('Hogar'));});"
                 ]
               }
             }
@@ -475,14 +545,15 @@
           }
         },
         {
-          "name": "Filtrar por precio (200)",
+          "name": "Filtrar por rango de precio (200)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status 200',()=>pm.response.to.have.status(200));"
+                  "pm.test('Status 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('Precios en rango',()=>pm.response.json().forEach(p=>pm.expect(p.precio).to.be.within(50,100)));"
                 ]
               }
             }
@@ -516,14 +587,15 @@
           }
         },
         {
-          "name": "Detalle producto (200)",
+          "name": "Detalle de producto (200)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status 200',()=>pm.response.to.have.status(200));"
+                  "pm.test('Status 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('id=1 y precio>0',()=>{const j=pm.response.json();pm.expect(j.id).to.eql(1);pm.expect(j.precio).to.be.above(0);});"
                 ]
               }
             }
@@ -555,7 +627,8 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status 404',()=>pm.response.to.have.status(404));"
+                  "pm.test('Status 404',()=>pm.response.to.have.status(404));",
+                  "pm.test('Respuesta de error con mensaje',()=>pm.expect(pm.response.json()).to.have.property('error'));"
                 ]
               }
             }
@@ -580,14 +653,15 @@
           }
         },
         {
-          "name": "Filtro inválido (400)",
+          "name": "Filtro de precio inválido (400)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status 400',()=>pm.response.to.have.status(400));"
+                  "pm.test('Status 400',()=>pm.response.to.have.status(400));",
+                  "pm.test('Respuesta de error con mensaje',()=>pm.expect(pm.response.json()).to.have.property('error'));"
                 ]
               }
             }
@@ -629,7 +703,8 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status 401',()=>pm.response.to.have.status(401));"
+                  "pm.test('Status 401',()=>pm.response.to.have.status(401));",
+                  "pm.test('Respuesta de error con mensaje',()=>pm.expect(pm.response.json()).to.have.property('error'));"
                 ]
               }
             }
@@ -662,14 +737,15 @@
           }
         },
         {
-          "name": "Crear como usuario (403)",
+          "name": "Crear con rol usuario (403)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status 403',()=>pm.response.to.have.status(403));"
+                  "pm.test('Status 403',()=>pm.response.to.have.status(403));",
+                  "pm.test('Respuesta de error con mensaje',()=>pm.expect(pm.response.json()).to.have.property('error'));"
                 ]
               }
             }
@@ -716,7 +792,8 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status 400',()=>pm.response.to.have.status(400));"
+                  "pm.test('Status 400',()=>pm.response.to.have.status(400));",
+                  "pm.test('Respuesta de error con mensaje',()=>pm.expect(pm.response.json()).to.have.property('error'));"
                 ]
               }
             }
@@ -756,7 +833,151 @@
           }
         },
         {
-          "name": "Crear como admin (201)",
+          "name": "Crear precio negativo (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400',()=>pm.response.to.have.status(400));",
+                  "pm.test('Respuesta de error con mensaje',()=>pm.expect(pm.response.json()).to.have.property('error'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdmin}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"X\",\n  \"categoria\": \"Y\",\n  \"precio\": -10\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/productos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "productos"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Crear con nombre vacío (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400',()=>pm.response.to.have.status(400));",
+                  "pm.test('Respuesta de error con mensaje',()=>pm.expect(pm.response.json()).to.have.property('error'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdmin}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"\",\n  \"categoria\": \"Y\",\n  \"precio\": 5\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/productos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "productos"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Crear sin categoría (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400',()=>pm.response.to.have.status(400));",
+                  "pm.test('Respuesta de error con mensaje',()=>pm.expect(pm.response.json()).to.have.property('error'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdmin}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"X\",\n  \"precio\": 5\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/productos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "productos"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Crear producto como admin (201)",
           "event": [
             {
               "listen": "test",
@@ -764,6 +985,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('Status 201',()=>pm.response.to.have.status(201));",
+                  "pm.test('Campos creados',()=>{const j=pm.response.json();pm.expect(j.nombre).to.eql('Producto Postman');pm.expect(j.precio).to.eql(15.5);});",
                   "pm.collectionVariables.set('productoId',pm.response.json().id);"
                 ]
               }
@@ -804,14 +1026,48 @@
           }
         },
         {
-          "name": "Actualizar como admin (200)",
+          "name": "Consultar producto creado (200)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status 200',()=>pm.response.to.have.status(200));"
+                  "pm.test('Status 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('Mismo id',()=>pm.expect(pm.response.json().id).to.eql(Number(pm.collectionVariables.get('productoId'))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/productos/{{productoId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "productos",
+                "{{productoId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Actualizar (PUT) como admin (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('Datos actualizados',()=>{const j=pm.response.json();pm.expect(j.nombre).to.eql('Producto Editado');pm.expect(j.precio).to.eql(20);});"
                 ]
               }
             }
@@ -852,14 +1108,113 @@
           }
         },
         {
-          "name": "Actualizar como usuario (403)",
+          "name": "Actualizar con precio inválido (400)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status 403',()=>pm.response.to.have.status(403));"
+                  "pm.test('Status 400',()=>pm.response.to.have.status(400));",
+                  "pm.test('Respuesta de error con mensaje',()=>pm.expect(pm.response.json()).to.have.property('error'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdmin}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Producto Editado\",\n  \"categoria\": \"Test\",\n  \"precio\": 0\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/productos/{{productoId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "productos",
+                "{{productoId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Actualizar parcial (PATCH) precio (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('Precio 25',()=>pm.expect(pm.response.json().precio).to.eql(25));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdmin}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"precio\": 25\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/productos/{{productoId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "productos",
+                "{{productoId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Actualizar con rol usuario (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403',()=>pm.response.to.have.status(403));",
+                  "pm.test('Respuesta de error con mensaje',()=>pm.expect(pm.response.json()).to.have.property('error'));"
                 ]
               }
             }
@@ -907,7 +1262,8 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status 404',()=>pm.response.to.have.status(404));"
+                  "pm.test('Status 404',()=>pm.response.to.have.status(404));",
+                  "pm.test('Respuesta de error con mensaje',()=>pm.expect(pm.response.json()).to.have.property('error'));"
                 ]
               }
             }
@@ -946,21 +1302,60 @@
               ]
             }
           }
-        }
-      ]
-    },
-    {
-      "name": "4. Favoritos y aislamiento",
-      "item": [
+        },
         {
-          "name": "Listar sin token (401)",
+          "name": "Filtrar por categoría Test incluye el creado (200)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status 401',()=>pm.response.to.have.status(401));"
+                  "pm.test('Status 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('Incluye el producto',()=>pm.expect(pm.response.json().map(p=>p.id)).to.include(Number(pm.collectionVariables.get('productoId'))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/productos?categoria=Test",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "productos"
+              ],
+              "query": [
+                {
+                  "key": "categoria",
+                  "value": "Test"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Rutas protegidas y tokens",
+      "item": [
+        {
+          "name": "Favoritos sin token (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401',()=>pm.response.to.have.status(401));",
+                  "pm.test('Respuesta de error con mensaje',()=>pm.expect(pm.response.json()).to.have.property('error'));"
                 ]
               }
             }
@@ -984,7 +1379,170 @@
           }
         },
         {
+          "name": "Favoritos con token vencido (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401',()=>pm.response.to.have.status(401));",
+                  "pm.test('Respuesta de error con mensaje',()=>pm.expect(pm.response.json()).to.have.property('error'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwicm9sIjoiYWRtaW4iLCJpYXQiOjE2MDAwMDAwMDAsImV4cCI6MTYwMDAwMzYwMH0.firma_invalida_de_ejemplo",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/favoritos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "favoritos"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Favoritos con token manipulado (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401',()=>pm.response.to.have.status(401));",
+                  "pm.test('Respuesta de error con mensaje',()=>pm.expect(pm.response.json()).to.have.property('error'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenA}}x",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/favoritos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "favoritos"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Perfil /me con token válido (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('No expone password/hash',()=>pm.expect(pm.response.text()).to.not.match(/password|\\$2[aby]\\$/i));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenA}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "me"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Favoritos y aislamiento A/B",
+      "item": [
+        {
           "name": "A agrega favorito (201)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201',()=>pm.response.to.have.status(201));",
+                  "pm.test('Pertenece a A',()=>pm.expect(pm.response.json().producto_id).to.eql(Number(pm.collectionVariables.get('productoId'))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenA}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/favoritos/{{productoId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "favoritos",
+                "{{productoId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "A agrega favorito persistente: producto 1 (201)",
           "event": [
             {
               "listen": "test",
@@ -1010,14 +1568,14 @@
               ]
             },
             "url": {
-              "raw": "{{baseUrl}}/api/favoritos/{{productoId}}",
+              "raw": "{{baseUrl}}/api/favoritos/1",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
                 "favoritos",
-                "{{productoId}}"
+                "1"
               ]
             }
           }
@@ -1030,7 +1588,8 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status 409',()=>pm.response.to.have.status(409));"
+                  "pm.test('Status 409',()=>pm.response.to.have.status(409));",
+                  "pm.test('Respuesta de error con mensaje',()=>pm.expect(pm.response.json()).to.have.property('error'));"
                 ]
               }
             }
@@ -1062,14 +1621,15 @@
           }
         },
         {
-          "name": "Favorito de producto inexistente (404)",
+          "name": "A agrega producto inexistente (404)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status 404',()=>pm.response.to.have.status(404));"
+                  "pm.test('Status 404',()=>pm.response.to.have.status(404));",
+                  "pm.test('Respuesta de error con mensaje',()=>pm.expect(pm.response.json()).to.have.property('error'));"
                 ]
               }
             }
@@ -1101,7 +1661,7 @@
           }
         },
         {
-          "name": "A lista favoritos (200, 1)",
+          "name": "A lista sus favoritos (200, 2)",
           "event": [
             {
               "listen": "test",
@@ -1109,7 +1669,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('Status 200',()=>pm.response.to.have.status(200));",
-                  "pm.test('A ve 1',()=>pm.expect(pm.response.json().length).to.eql(1));"
+                  "pm.test('A ve 2 favoritos',()=>{const j=pm.response.json();pm.expect(j.length).to.eql(2);pm.expect(j.map(p=>p.id)).to.include(1);});"
                 ]
               }
             }
@@ -1140,7 +1700,7 @@
           }
         },
         {
-          "name": "B lista favoritos (200, 0)",
+          "name": "B lista favoritos: vacío (200)",
           "event": [
             {
               "listen": "test",
@@ -1148,7 +1708,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('Status 200',()=>pm.response.to.have.status(200));",
-                  "pm.test('B no ve los de A',()=>pm.expect(pm.response.json().length).to.eql(0));"
+                  "pm.test('B no ve los de A',()=>pm.expect(pm.response.json()).to.have.lengthOf(0));"
                 ]
               }
             }
@@ -1179,14 +1739,15 @@
           }
         },
         {
-          "name": "B intenta borrar favorito de A (404)",
+          "name": "B intenta quitar favorito de A (404)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status 404',()=>pm.response.to.have.status(404));"
+                  "pm.test('Status 404',()=>pm.response.to.have.status(404));",
+                  "pm.test('Respuesta de error con mensaje',()=>pm.expect(pm.response.json()).to.have.property('error'));"
                 ]
               }
             }
@@ -1218,7 +1779,125 @@
           }
         },
         {
-          "name": "A elimina favorito (204)",
+          "name": "A sigue teniendo sus favoritos (200, 2)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('El favorito de A permanece',()=>pm.expect(pm.response.json()).to.have.lengthOf(2));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenA}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/favoritos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "favoritos"
+              ]
+            }
+          }
+        },
+        {
+          "name": "B agrega el mismo producto sin conflicto (201)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201',()=>pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenB}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/favoritos/{{productoId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "favoritos",
+                "{{productoId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "B elimina su favorito (204)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 204',()=>pm.response.to.have.status(204));",
+                  "pm.test('Sin cuerpo',()=>pm.expect(pm.response.text()).to.eql(''));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenB}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/favoritos/{{productoId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "favoritos",
+                "{{productoId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "A elimina su favorito del producto creado (204)",
           "event": [
             {
               "listen": "test",
@@ -1255,21 +1934,101 @@
               ]
             }
           }
-        }
-      ]
-    },
-    {
-      "name": "5. Limpieza",
-      "item": [
+        },
         {
-          "name": "Eliminar producto como usuario (403)",
+          "name": "A elimina de nuevo (404)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status 403',()=>pm.response.to.have.status(403));"
+                  "pm.test('Status 404',()=>pm.response.to.have.status(404));",
+                  "pm.test('Respuesta de error con mensaje',()=>pm.expect(pm.response.json()).to.have.property('error'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenA}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/favoritos/{{productoId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "favoritos",
+                "{{productoId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "A lista: queda solo el producto 1 (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('Solo producto 1',()=>{const j=pm.response.json();pm.expect(j).to.have.lengthOf(1);pm.expect(j[0].id).to.eql(1);});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenA}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/favoritos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "favoritos"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Eliminar producto (admin)",
+      "item": [
+        {
+          "name": "Eliminar con rol usuario (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403',()=>pm.response.to.have.status(403));",
+                  "pm.test('Respuesta de error con mensaje',()=>pm.expect(pm.response.json()).to.have.property('error'));"
                 ]
               }
             }
@@ -1301,7 +2060,7 @@
           }
         },
         {
-          "name": "Eliminar producto como admin (204)",
+          "name": "Eliminar como admin (204)",
           "event": [
             {
               "listen": "test",
@@ -1325,6 +2084,39 @@
                   "type": "string"
                 }
               ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/productos/{{productoId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "productos",
+                "{{productoId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Consultar eliminado (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404',()=>pm.response.to.have.status(404));",
+                  "pm.test('Respuesta de error con mensaje',()=>pm.expect(pm.response.json()).to.have.property('error'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
             },
             "url": {
               "raw": "{{baseUrl}}/api/productos/{{productoId}}",
@@ -1347,7 +2139,8 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status 404',()=>pm.response.to.have.status(404));"
+                  "pm.test('Status 404',()=>pm.response.to.have.status(404));",
+                  "pm.test('Respuesta de error con mensaje',()=>pm.expect(pm.response.json()).to.have.property('error'));"
                 ]
               }
             }
@@ -1374,6 +2167,204 @@
                 "api",
                 "productos",
                 "{{productoId}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Persistencia (ejecutar DESPUÉS de reiniciar el servidor)",
+      "item": [
+        {
+          "name": "Login A tras reinicio (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200',()=>pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('tokenA',pm.response.json().token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"a_{{run}}@test.com\",\n  \"password\": \"Password1\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Login B tras reinicio (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200',()=>pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('tokenB',pm.response.json().token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"b_{{run}}@test.com\",\n  \"password\": \"Password1\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Favorito de A persiste (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('El favorito (producto 1) sigue guardado',()=>{const j=pm.response.json();pm.expect(j).to.have.lengthOf(1);pm.expect(j[0].id).to.eql(1);});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenA}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/favoritos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "favoritos"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Catálogo persiste (200, ≥5)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('≥5 productos',()=>pm.expect(pm.response.json().length).to.be.at.least(5));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/productos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "productos"
+              ]
+            }
+          }
+        },
+        {
+          "name": "B sigue sin ver favoritos de A (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200',()=>pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenB}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/favoritos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "favoritos"
               ]
             }
           }
